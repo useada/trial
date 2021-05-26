@@ -11,7 +11,8 @@
   (defvar *optimize-features* '(:elide-buffer-access-checks
                                 :elide-coercion-size-checks
                                 :elide-container-checks
-                                :elide-handler-restarts))
+                                :elide-handler-restarts
+                                :elide-uniform-map-resize))
 
   #+trial-debug-all
   (setf *features* (union *features* *debug-features*))

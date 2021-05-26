@@ -6,8 +6,17 @@
 
 (in-package #:org.shirakumo.fraf.trial)
 
+(defvar *known-uniforms* (make-hash-table :test 'equal))
+(defvar *uniform-counter* 0)
+
+(defun %uniform-slot-id (uniform-name)
+  (let ((known (gethash uniform-name *known-uniforms*)))
+    (or known
+        (setf (gethash uniform-name *known-uniforms*)
+              (1- (incf *uniform-counter*))))))
+
 (defclass shader-program (gl-resource)
-  ((uniform-map :initform (make-hash-table :test 'equal) :accessor uniform-map)
+  ((uniform-map :initform (make-array *uniform-counter* :element-type '(signed-byte 32)) :accessor uniform-map)
    (shaders :initarg :shaders :accessor shaders)
    (buffers :initarg :buffers :accessor buffers))
   (:default-initargs
@@ -41,7 +50,7 @@
     (v:debug :trial.asset "Linked ~a with ~a." program shaders)
     (loop for buffer in (buffers program)
           do (bind buffer program))
-    (clrhash (uniform-map program))))
+    (fill (uniform-map program) -1)))
 
 (defmethod (setf shaders) :before (shaders (program shader-program))
   (when (allocated-p program)
@@ -64,7 +73,7 @@
         (link-program program shaders)))))
 
 (defmethod deallocate ((program shader-program))
-  (clrhash (uniform-map program))
+  (fill (uniform-map program) -1)
   (gl:delete-program (gl-name program)))
 
 (declaim (inline %set-uniform))
@@ -108,12 +117,28 @@
                  (2 (gl:uniform-matrix-4x2-fv location (marrn data)))
                  (3 (gl:uniform-matrix-4x3-fv location (marrn data)))))))))
 
-(declaim (inline uniform-location))
-(defun uniform-location (program name)
-  (or (gethash name (uniform-map program))
-      (setf (gethash name (uniform-map program))
-            (gl:get-uniform-location (gl-name program) name))))
+(declaim (inline %uniform-location))
+(defun %uniform-location (program name id)
+  (declare (optimize speed))
+  (let ((array (uniform-map program)))
+    (declare (type (simple-array (signed-byte 32) (*)) array))
+    (declare (type (unsigned-byte 16) id))
+    ;; FIXME: We don't yet know all uniforms at compile time. We can't remove this check unless we can ensure
+    ;;        this absolutely. Need to do stuff like shader pass port uniforms baking as well.
+    #-:elide-uniform-map-resize
+    (when (<= (length array) id)
+      (setf array (setf (uniform-map program) (adjust-array array (1+ id) :element-type '(signed-byte 32)))))
+    (locally (declare (optimize (safety 0)))
+      (let ((existing (aref array id)))
+        (if (< existing 0)
+            (setf (aref array id) (gl:get-uniform-location (gl-name program) name))
+            existing)))))
 
+(declaim (inline (setf uniform)))
+(defun uniform-location (program name)
+  (%uniform-location program name (%uniform-slot-id name)))
+
+(declaim (inline (setf uniform)))
 (defun (setf uniform) (data asset name)
   (declare (optimize speed))
   (let* ((name (etypecase name
@@ -124,7 +149,7 @@
 
 (define-compiler-macro (setf uniform) (&environment env data asset name)
   (let ((nameg (gensym "NAME"))
-        (assetg (gensym "ASSET"))
+        (idg (gensym "ID"))
         (locationg (gensym "LOCATION")))
     (cond ((constantp name env)
            `(let ((,nameg (load-time-value
@@ -132,12 +157,18 @@
                              (etypecase ,name
                                (string ,name)
                                (symbol (symbol->c-name ,name))))))
-                  (,assetg ,asset))
-              (%set-uniform (uniform-location ,assetg ,nameg) ,data)))
+                  (,idg (load-time-value
+                         (locally #+sbcl (declare (sb-ext:muffle-conditions sb-ext:compiler-note))
+                                  (%uniform-slot-id
+                                   (etypecase ,name
+                                     (string ,name)
+                                     (symbol (symbol->c-name ,name))))))))
+              (%set-uniform (%uniform-location ,asset ,nameg ,idg) ,data)))
           (T
-           `(let* ((,nameg (etypecase ,name
-                             (string ,name)
-                             (symbol (symbol->c-name ,name))))
+           `(let* ((,nameg ,name)
+                   (,nameg (etypecase ,nameg
+                             (string ,nameg)
+                             (symbol (symbol->c-name ,nameg))))
                    (,locationg (uniform-location ,asset ,nameg)))
               (%set-uniform ,locationg ,data))))))
 
