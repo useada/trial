@@ -10,12 +10,12 @@
 
 (defun languages ()
   (mapcar #'pathname-utils:directory-name
-          (directory (merge-pathnames "lang/*/" (root)))))
+          (directory (merge-pathnames "lang/*/" (data-root)))))
 
 
 (defun language-dir (language)
   (merge-pathnames (make-pathname :directory `(:relative "lang" ,(string-downcase language)))
-                   (root)))
+                   (data-root)))
 
 (defun language-file (language)
   (make-pathname :name "strings" :type "lisp" :defaults (language-dir language)))

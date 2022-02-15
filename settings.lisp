@@ -32,8 +32,8 @@
     (ensure-directories-exist path)
     (when (or (not (probe-file path))
               (< (file-write-date path)
-                 (file-write-date (merge-pathnames "keymap.lisp" (root)))))
-      (uiop:copy-file (merge-pathnames "keymap.lisp" (root)) path)))
+                 (file-write-date (merge-pathnames "keymap.lisp" (data-root)))))
+      (uiop:copy-file (merge-pathnames "keymap.lisp" (data-root)) path)))
   (load-mapping path :name name))
 
 (defun save-keymap (&key (path (keymap-path)) (name 'keymap))

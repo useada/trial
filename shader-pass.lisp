@@ -280,16 +280,16 @@
 (defmethod compile-to-pass :around ((object transformed) (pass scene-pass))
   ;; KLUDGE: early out to avoid allocating pointless push/pop pairs.
   (when (or (object-renderable-p object pass)
-            (typep object 'flare:container))
+            (typep object 'container))
     (push-pass-action pass `(push-matrix))
     (push-pass-action pass `(apply-transforms ,object))
     (call-next-method)
     (push-pass-action pass `(pop-matrix))))
 
-(defmethod compile-to-pass :after ((object flare:container) (pass scene-pass))
+(defmethod compile-to-pass :after ((object container) (pass scene-pass))
   (for:for ((child over object))
     (when (or (object-renderable-p child pass)
-              (typep child 'flare:container))
+              (typep child 'container))
       (compile-to-pass child pass)
       ;; KLUDGE: We can't do this in another method for the OBJECT, as the
       ;;         AROUND for TRANSFORMED must happen before we finish the group.
@@ -320,9 +320,9 @@
   (when (object-renderable-p entity pass)
     (call-next-method)))
 
-(defmethod compile-into-pass ((entity entity) (container flare:container) (pass scene-pass))
+(defmethod compile-into-pass ((entity entity) (container container) (pass scene-pass))
   (let ((group-pointers (group-pointers pass)))
-    (loop for prev = (preceding-entity entity container) then (preceding-entity prev container)
+    (loop for prev = (predecessor entity container) then (predecessor prev container)
           for guards = (gethash prev group-pointers)
           while prev
           do (when guards
