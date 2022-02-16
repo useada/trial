@@ -6,8 +6,11 @@
 
 (in-package #:org.shirakumo.fraf.trial)
 
-(defclass scene (container event-loop)
+(defclass scene (bag event-loop)
   ((name-map :initform (make-hash-table :test 'eq) :accessor name-map)))
+
+(defmethod unit (name (scene scene))
+  (gethash name (name-map scene)))
 
 (defmethod register ((entity entity) (scene scene))
   (setf (gethash (name entity) (name-map scene)) entity))
