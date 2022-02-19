@@ -471,7 +471,8 @@
    #:pivot
    #:scaled-entity
    #:scaling
-   #:clocked-entity
+   #:transformed-entity
+   #:tf
    #:fullscreen-entity
    #:vertex-entity
    #:colored-entity
