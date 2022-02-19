@@ -36,6 +36,7 @@
         (unwind-protect
              (with-retry-restart (reset-render-loop "Reset the render loop timing, not catching up with lost frames.")
                (let ((tt 0.0d0)
+                     (fdt (coerce (delta-time render-loop) 'single-float))
                      (dt (coerce (delta-time render-loop) 'double-float))
                      (current-time (current-time))
                      (accumulator 0.0d0)
@@ -52,7 +53,7 @@
                             (loop while (<= dt accumulator)
                                   do (when (<= 10d0 accumulator)
                                        (setf accumulator dt))
-                                     (update render-loop tt dt fc)
+                                     (update render-loop tt fdt fc)
                                      (decf accumulator dt)
                                      (incf tt dt)
                                      (incf fc))
